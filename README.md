@@ -1,5 +1,9 @@
 # CS-E4780-Project
 
+## Architectures
+
+![Architecture Diagram](./Figures/arch.svg)
+
 ## Virtual Enviroment
 
 ### Install Kafka locally on Ubuntu
@@ -36,4 +40,5 @@ Quix Streams is an end-to-end framework for real-time Python data engineering, o
 Build data pipelines and event-driven microservice architectures leveraging Kafka's low-level scalability, resiliency and durability features in a lightweight library without server-side clusters to manage.
 
 ## Useful References
+
 [Continuously updating a vector store](https://quix.io/templates/continuously-update-a-vector-store-with-new-embeddings)
