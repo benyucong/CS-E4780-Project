@@ -4,17 +4,15 @@ import time
 import uuid
 import os
 import pandas as pd
-import orjson
 
 # Quix stuff
 from quixstreams.kafka import Producer
 from quixstreams import Application, State 
 
-docs_topic_name = 'dbs2022-trading'
+docs_topic_name = 'debs2022-trading'
 
-df = pd.read_csv('../datasets/debs2022-gc-trading-day-13-11-21.csv', comment='#', delimiter=",")
-print(df['Nominal value'].head())
-#df = pd.read_csv('../datasets/demo.csv', comment='#')
+# df = pd.read_csv('../datasets/debs2022-gc-trading-day-13-11-21')
+df = pd.read_csv('../datasets/demo.csv', comment='#')
 # print(df.head())
 # print(df.columns.tolist())
 df.columns = df.columns.str.strip()
@@ -31,7 +29,6 @@ with Producer(
         doc_id = index
         doc_key = f"A{'0'*(10-len(str(doc_id)))}{doc_id}"
         doc_uuid = str(uuid.uuid4())
-        row = row.replace({pd.NA: None})
         # Read all relevant columns
         value = {
             "Timestamp": time.time_ns(),
@@ -77,9 +74,8 @@ with Producer(
             "Bid time": row['Bid time'],
             "Auction Time": row['Auction Time']
         }
-        if row['Open'] is not None:
-            print(f"Value of nominal value for {index} is {row['Open']}")
-        #print(f"Producing value: {value}")
+        
+        print(f"Producing value: {value}")
         
         producer.produce(
             topic=outputtopicname,
