@@ -1,2 +1,8 @@
 myenv/
+kafka_2.13-3.6.2/
+Data Process/state/*
+state/*
+Data Process/__pycache__/
+Figures/
 .DS_Store
+kafka_2.13-3.6.2.tgz
