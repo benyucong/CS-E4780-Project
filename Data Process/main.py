@@ -5,6 +5,7 @@ import time
 from typing import Any, Optional, List, Tuple
 from datetime import timedelta
 from query2 import query2_calculation
+import copy
 
 docs_topic_name = 'dbs2022-trading'
 
@@ -19,7 +20,6 @@ app = Application(
     auto_offset_reset="earliest",
     consumer_extra_config={"allow.auto.create.topics": "true"},
 )
-price_list = []
 
 # Timestamp extractor must always return timestamp as an integer in milliseconds.
 def timestamp_extractor(value: Any) -> int:
@@ -37,7 +37,11 @@ print(f"Producing to output topic: {outputtopicname}")
 sdf = app.dataframe(topic=input_topic)
 # sdf = sdf.update(lambda val: print(f"Received update: {val}"))
 
+# Query 1
 #my_stock = sdf.filter(lambda row: row['ID'] == 'A1EXZE.ETR')
+# store the ems for each stock
+known_stock_id_emas = dict()
+window_buffer = dict()
 
 # main logic for query processing, recall the definitions from Haskell/Clean :)
 def initializer(value: dict) -> dict:
@@ -46,8 +50,23 @@ def initializer(value: dict) -> dict:
 
     It will prime the aggregation when the first record arrives 
     in the window.
+    1, move the items from window_buffer into the known_stock_id_emas
+    2, Initiate EMA38 and EMA100 to 0 if stock not seen before. Otherwise, keep the previous windows' values.
     """
-    return {}
+    global window_buffer
+    global known_stock_id_emas
+    # shallow copy the window buffer
+    known_stock_id_emas = window_buffer.copy()
+    if value['ID'] not in known_stock_id_emas:
+        known_stock_id_emas[value['ID']]['EMA38'] = 0
+        known_stock_id_emas[value['ID']]['EMA100'] = 0
+    new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
+    new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100)
+    # new window buffer starts with the new emas
+    window_buffer = {
+        value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
+    } 
+    return window_buffer
 
 def reducer(aggregated: dict, value: dict) -> dict:
     """
@@ -57,57 +76,20 @@ def reducer(aggregated: dict, value: dict) -> dict:
     It combines them into a new aggregated value and returns it.
     This aggregated value will be also returned as a result of the window.
     """
-    stock_id = value.get("doc_id")
-    if stock_id is None:
-        return aggregated  # Skip if no stock ID is present
+    global known_stock_id_emas
+    if value['ID'] not in known_stock_id_emas:
+        known_stock_id_emas[value['ID']]['EMA38'] = 0
+        known_stock_id_emas[value['ID']]['EMA100'] = 0
+    new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
+    new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
 
-    # Initialize stock entry if not already present in `aggregated`
-    if stock_id not in aggregated:
-        aggregated[stock_id] = {
-            "prices": [],
-            "cumulative_price": 0,
-            "price_count": 0,
-            "last_price": None,
-            "ema_38": 0,
-            "ema_100": 0
-        }
-    stock_data = aggregated[stock_id]
-
-    if "Open" in value and value["Open"] is not None:
-        price = value["Open"]
-        stock_data["last_price"] = price
-        stock_data["cumulative_price"] += price
-        stock_data["price_count"] += 1
-        print(f"Price for {stock_id}: {price}")
-
+    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})    
     return aggregated
 
 def calculate_ema(previous_ema, price, smooth_fac):
     alpha = 2 / (smooth_fac + 1)
     ema = (price * alpha) + previous_ema  * (1 - alpha)
     return ema
-
-def process_window(window_data):
-    stock_data_dict = window_data.get("value", {})
-    for stock_id, stock_data in stock_data_dict.items():
-        print(f"Processing stock ID: {stock_id}")
-        last_price = stock_data["last_price"]
-
-        if last_price is None:
-            continue
-
-        stock_data["ema_38"] = calculate_ema(stock_data["ema_38"], last_price, 38)
-        stock_data["ema_100"] = calculate_ema(stock_data["ema_100"], last_price, 100)
-
-        print(f"EMA_38: {stock_data['ema_38']}, EMA_100: {stock_data['ema_100']}")
-
-        previous_ema_38 = stock_data.get("previous_ema_38", stock_data["ema_38"])
-        previous_ema_100 = stock_data.get("previous_ema_100", stock_data["ema_100"])
-
-        query2_calculation(stock_data["ema_38"], stock_data["ema_100"], previous_ema_38, previous_ema_100)
-
-        stock_data["previous_ema_38"] = stock_data["ema_38"]
-        stock_data["previous_ema_100"] = stock_data["ema_100"]
 
 #tumbling window, emitting results for each incoming message
 sdf = (
@@ -116,8 +98,9 @@ sdf = (
     .reduce(reducer=reducer, initializer=initializer)
     # Emit updates for each incoming message
     .current()
-    .apply(process_window)
 )
+
+# Query 2 starts here
 
 sdf = sdf.to_topic(output_topic)
 app.run(sdf)
