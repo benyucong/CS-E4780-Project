@@ -1,6 +1,8 @@
 from quixstreams import Application
+from quixstreams.models import TimestampType
 import os
 import time
+from typing import Any, Optional, List, Tuple
 from datetime import timedelta
 from query2 import query2_calculation
 
@@ -19,7 +21,14 @@ app = Application(
 )
 price_list = []
 
-input_topic = app.topic(inputtopicname, value_deserializer="json")
+# Timestamp extractor must always return timestamp as an integer in milliseconds.
+def timestamp_extractor(value: Any) -> int:
+    time_str=value['Trading time'] if value['Trading time'] else value['Time']
+    hours, minutes, seconds = map(int, time_str.split(':'))
+    milliseconds = (hours * 3600 + minutes * 60 + seconds) * 1000
+    return milliseconds
+
+input_topic = app.topic(inputtopicname, value_deserializer="json", timestamp_extractor=timestamp_extractor)
 print(f"Consuming from input topic: {inputtopicname}")
 
 output_topic = app.topic(outputtopicname, value_serializer="json")
@@ -99,8 +108,6 @@ def process_window(window_data):
 
         stock_data["previous_ema_38"] = stock_data["ema_38"]
         stock_data["previous_ema_100"] = stock_data["ema_100"]
-
-    
 
 #tumbling window, emitting results for each incoming message
 sdf = (
