@@ -13,10 +13,8 @@ from quixstreams import Application, State
 docs_topic_name = 'dbs2022-trading'
 
 df = pd.read_csv('../datasets/Monday_head200.csv', comment='#', delimiter=",",index_col=False)
-print(df['Nominal value'].head())
 #df = pd.read_csv('../datasets/demo.csv', comment='#')
-# print(df.head())
-# print(df.columns.tolist())
+
 df.columns = df.columns.str.strip()
 
 outputtopicname = docs_topic_name
@@ -39,46 +37,11 @@ with Producer(
             "doc_uuid": doc_uuid,
             "ID": row['ID'],
             "SecType": row['SecType'],
-            "Date": row['Date'],
             "Time": row['Time'],
-            "Ask": row['Ask'],
-            "Ask volume": row['Ask volume'],
-            "Bid": row['Bid'],
-            "Bid volume": row['Bid volume'],
-            "Ask time": row['Ask time'],
-            "Day's high ask": row['Day\'s high ask'],
-            "Close": row['Close'],
-            "Currency": row['Currency'],
-            "Day's high ask time": row['Day\'s high ask time'],
-            "Day's high": row['Day\'s high'],
-            "ISIN": row['ISIN'],
-            "Auction price": row['Auction price'],
-            "Day's low ask": row['Day\'s low ask'],
-            "Day's low": row['Day\'s low'],
-            "Day's low ask time": row['Day\'s low ask time'],
-            "Open": row['Open'],
-            "Nominal value": row['Nominal value'],
             "Last": row['Last'],
-            "Last volume": row['Last volume'],
             "Trading time": row['Trading time'],
-            "Total volume": row['Total volume'],
-            "Mid price": row['Mid price'],
             "Trading date": row['Trading date'],
-            "Profit": row['Profit'],
-            "Current price": row['Current price'],
-            "Related indices": row['Related indices'],
-            "Day high bid time": row['Day high bid time'],
-            "Day low bid time": row['Day low bid time'],
-            "Open Time": row['Open Time'],
-            "Last trade time": row['Last trade time'],
-            "Close Time": row['Close Time'],
-            "Day high Time": row['Day high Time'],
-            "Day low Time": row['Day low Time'],
-            "Bid time": row['Bid time'],
-            "Auction Time": row['Auction Time']
         }
-        if row['Open'] is not None:
-            print(f"Value of nominal value for {index} is {row['Open']}")
         #print(f"Producing value: {value}")
         
         producer.produce(

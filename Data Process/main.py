@@ -31,9 +31,13 @@ def timestamp_extractor(
 ) -> int:
     if value['Trading time']:
         time_str = value['Trading time']
+        print(f"Timestamp: {time_str}")
     else:
         return 0
-    hours, minutes, seconds = map(int, time_str.split(':'))
+    hours, minutes, seconds = time_str.split(':')
+    hours = int(hours)
+    minutes = int(minutes)
+    seconds = int(float(seconds))
     milliseconds = (hours * 3600 + minutes * 60 + seconds) * 1000
     return milliseconds
 
@@ -93,6 +97,7 @@ def reducer(aggregated: dict, value: dict) -> dict:
         known_stock_id_emas[value['ID']]['EMA100'] = 0
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
+    print(f"EMA38: {new_ema38}, EMA100: {new_ema100}")
 
     aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})    
     return aggregated
