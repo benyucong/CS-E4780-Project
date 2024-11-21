@@ -22,8 +22,17 @@ app = Application(
 )
 
 # Timestamp extractor must always return timestamp as an integer in milliseconds.
-def timestamp_extractor(value: Any) -> int:
-    time_str=value['Trading time'] if value['Trading time'] else value['Time']
+
+def timestamp_extractor(
+    value: Any,
+    headers: Optional[List[Tuple[str, bytes]]],
+    timestamp: float,
+    timestamp_type: TimestampType,
+) -> int:
+    if value['Trading time']:
+        time_str = value['Trading time']
+    else:
+        return 0
     hours, minutes, seconds = map(int, time_str.split(':'))
     milliseconds = (hours * 3600 + minutes * 60 + seconds) * 1000
     return milliseconds
@@ -37,10 +46,12 @@ print(f"Producing to output topic: {outputtopicname}")
 sdf = app.dataframe(topic=input_topic)
 # sdf = sdf.update(lambda val: print(f"Received update: {val}"))
 
-# Query 1
-#my_stock = sdf.filter(lambda row: row['ID'] == 'A1EXZE.ETR')
-# store the ems for each stock
+# filter the stock by timestamp
+sdf = sdf.filter(lambda val: val['Trading time'] is not None)
+
+# store the emas for each stock of prev window
 known_stock_id_emas = dict()
+# store the emas for each stock of current window
 window_buffer = dict()
 
 # main logic for query processing, recall the definitions from Haskell/Clean :)
