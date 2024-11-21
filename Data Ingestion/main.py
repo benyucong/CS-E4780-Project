@@ -12,7 +12,7 @@ from quixstreams import Application, State
 
 docs_topic_name = 'dbs2022-trading'
 
-df = pd.read_csv('../datasets/debs2022-gc-trading-day-13-11-21.csv', comment='#', delimiter=",")
+df = pd.read_csv('../datasets/Monday_head200.csv', comment='#', delimiter=",",index_col=False)
 print(df['Nominal value'].head())
 #df = pd.read_csv('../datasets/demo.csv', comment='#')
 # print(df.head())
