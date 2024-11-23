@@ -22,7 +22,6 @@ app = Application(
 )
 
 # Timestamp extractor must always return timestamp as an integer in milliseconds.
-
 def timestamp_extractor(
     value: Any,
     headers: Optional[List[Tuple[str, bytes]]],
@@ -51,7 +50,7 @@ sdf = app.dataframe(topic=input_topic)
 # sdf = sdf.update(lambda val: print(f"Received update: {val}"))
 
 # filter the stock by timestamp
-sdf = sdf.filter(lambda val: val['Trading time'] is not None)
+sdf = sdf.filter(lambda val: val['Trading time'] is not None and val['Last'] is not None)
 
 # store the emas for each stock of prev window
 known_stock_id_emas = dict()
@@ -73,14 +72,15 @@ def initializer(value: dict) -> dict:
     # shallow copy the window buffer
     known_stock_id_emas = window_buffer.copy()
     if value['ID'] not in known_stock_id_emas:
-        known_stock_id_emas[value['ID']]['EMA38'] = 0
-        known_stock_id_emas[value['ID']]['EMA100'] = 0
+        known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
+    print(value['Last'])
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100)
     # new window buffer starts with the new emas
     window_buffer = {
         value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
-    } 
+    }
+    print(f"EMA38: {new_ema38}, EMA100: {new_ema100}") 
     return window_buffer
 
 def reducer(aggregated: dict, value: dict) -> dict:
@@ -93,8 +93,8 @@ def reducer(aggregated: dict, value: dict) -> dict:
     """
     global known_stock_id_emas
     if value['ID'] not in known_stock_id_emas:
-        known_stock_id_emas[value['ID']]['EMA38'] = 0
-        known_stock_id_emas[value['ID']]['EMA100'] = 0
+        known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
+    print(value['Last'])
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
     print(f"EMA38: {new_ema38}, EMA100: {new_ema100}")
