@@ -50,7 +50,7 @@ sdf = app.dataframe(topic=input_topic)
 # sdf = sdf.update(lambda val: print(f"Received update: {val}"))
 
 # filter the stock by timestamp
-sdf = sdf.filter(lambda val: val['Trading time'] is not None and val['Last'] is not None)
+sdf = sdf.filter(lambda val: val['Trading time'] is not None or val['Last'] is not None)
 
 # store the emas for each stock of prev window
 known_stock_id_emas = dict()
