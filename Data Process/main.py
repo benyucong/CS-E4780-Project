@@ -4,7 +4,6 @@ import os
 import time
 from typing import Any, Optional, List, Tuple
 from datetime import timedelta
-from query2 import query2_calculation
 import copy
 
 docs_topic_name = 'dbs2022-trading'
@@ -30,7 +29,6 @@ def timestamp_extractor(
 ) -> int:
     if value['Trading time']:
         time_str = value['Trading time']
-        print(f"Timestamp: {time_str}")
     else:
         return 0
     hours, minutes, seconds = time_str.split(':')
@@ -73,14 +71,12 @@ def initializer(value: dict) -> dict:
     known_stock_id_emas = window_buffer.copy()
     if value['ID'] not in known_stock_id_emas:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
-    print(value['Last'])
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100)
     # new window buffer starts with the new emas
     window_buffer = {
-        value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
+        value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100, 'Advisory': 'Hold'}
     }
-    print(f"EMA38: {new_ema38}, EMA100: {new_ema100}") 
     return window_buffer
 
 def reducer(aggregated: dict, value: dict) -> dict:
@@ -94,12 +90,10 @@ def reducer(aggregated: dict, value: dict) -> dict:
     global known_stock_id_emas
     if value['ID'] not in known_stock_id_emas:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
-    print(value['Last'])
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
-    print(f"EMA38: {new_ema38}, EMA100: {new_ema100}")
-
-    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})    
+    advisory=query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
+    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100, 'Advisory': advisory}})    
     return aggregated
 
 def calculate_ema(previous_ema, price, smooth_fac):
@@ -117,6 +111,18 @@ sdf = (
 )
 
 # Query 2 starts here
+def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
+    print("In query 2")
+    print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
+    if ema_38 > ema_100 and previous_ema_38 <= previous_ema_100:
+        print(f"Buy Detected")
+        return("Buy")
+    elif ema_38 < ema_100 and previous_ema_38 >= previous_ema_100:
+        print(f"Sell Detected")
+        return("Sell")
+    else:
+        print(f"No action")
+        return("Hold")
 
 sdf = sdf.to_topic(output_topic)
 app.run(sdf)

@@ -12,7 +12,7 @@ from quixstreams import Application, State
 
 docs_topic_name = 'dbs2022-trading'
 
-df = pd.read_csv('../datasets/filtered_trading_data_Monday.csv', comment='#', delimiter=",",index_col=False)
+df = pd.read_csv('../datasets/Monday_head200.csv', comment='#', delimiter=",",index_col=False)
 #df = pd.read_csv('../datasets/demo.csv', comment='#')
 
 df.columns = df.columns.str.strip()
@@ -42,7 +42,7 @@ with Producer(
             "Trading time": row['Trading time'],
             "Trading date": row['Trading date'],
         }
-        #print(f"Producing value: {value}")
+        print(f"Producing value: {value}")
         
         producer.produce(
             topic=outputtopicname,
