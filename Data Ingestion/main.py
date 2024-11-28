@@ -6,7 +6,6 @@ import pandas as pd
 
 # Quix stuff
 from quixstreams.kafka import Producer
-from quixstreams import Application, State 
 
 docs_topic_name = 'dbs2022-trading'
 

@@ -1,5 +1,8 @@
 from quixstreams import Application
 from quixstreams.models import TimestampType
+from quixstreams.kafka import Producer
+import json
+import uuid
 import os
 import time
 from typing import Any, Optional, List, Tuple
@@ -30,7 +33,6 @@ def timestamp_extractor(
 ) -> int:
     if value['Trading time']:
         time_str = value['Trading time']
-        #print(f"Timestamp: {time_str}")
     else:
         return 0
     hours, minutes, seconds = time_str.split(':')
@@ -56,6 +58,7 @@ sdf = sdf.filter(lambda val: val['Trading time'] is not None or val['Last'] is n
 known_stock_id_emas = dict()
 # store the emas for each stock of current window
 window_buffer = dict()
+output_data = dict()
 
 # main logic for query processing, recall the definitions from Haskell/Clean :)
 def initializer(value: dict) -> dict:
@@ -95,7 +98,7 @@ def reducer(aggregated: dict, value: dict) -> dict:
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
     advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
-    
+    global output_data
     output_data = {
         "Timestamp": value['Trading time'],
         "Stock ID": value['ID'],
@@ -103,10 +106,18 @@ def reducer(aggregated: dict, value: dict) -> dict:
         "EMA100": new_ema100,
         "Advice": advice,
     }
-    output_topic.produce(output_data)
-    
+    print(f"Advice for stock {value['ID']}: {advice}")
+    with Producer(
+        broker_address="127.0.0.1:9092",
+        extra_config={"allow.auto.create.topics": "true"},
+    ) as producer:
+        producer.produce(
+            topic=outputtopicname,
+            headers=[("uuid", str(uuid.uuid4()))],
+            key=value['ID'],
+            value=json.dumps(output_data),
+        )
     aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})   
-     
     return aggregated
 
 def calculate_ema(previous_ema, price, smooth_fac):
@@ -116,10 +127,8 @@ def calculate_ema(previous_ema, price, smooth_fac):
 
 #tumbling window, emitting results for each incoming message
 sdf = (
-    # Define a tumbling window of 5 minutes
     sdf.tumbling_window(duration_ms=timedelta(minutes=5))
     .reduce(reducer=reducer, initializer=initializer)
-    # Emit updates for each incoming message
     .current()
 )
 
@@ -135,5 +144,6 @@ def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
     else:
         return "Hold"
 
+
 sdf = sdf.to_topic(output_topic)
-app.run(sdf)
+app.run()
