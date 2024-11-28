@@ -2,9 +2,7 @@
 import json
 import time
 import uuid
-import os
 import pandas as pd
-import orjson
 
 # Quix stuff
 from quixstreams.kafka import Producer

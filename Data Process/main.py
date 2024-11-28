@@ -94,9 +94,19 @@ def reducer(aggregated: dict, value: dict) -> dict:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
-    #print(f"EMA38: {new_ema38}, EMA100: {new_ema100}")
-    query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
-    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})    
+    advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
+    
+    output_data = {
+        "Timestamp": value['Trading time'],
+        "Stock ID": value['ID'],
+        "EMA38": new_ema38,
+        "EMA100": new_ema100,
+        "Advice": advice,
+    }
+    output_topic.produce(output_data)
+    
+    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})   
+     
     return aggregated
 
 def calculate_ema(previous_ema, price, smooth_fac):
@@ -115,14 +125,15 @@ sdf = (
 
 # Query 2 starts here
 def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
-    print("In query 2")
     print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
     if ema_38 > ema_100 and previous_ema_38 <= previous_ema_100:
         print(f"Buy Detected")
+        return "Buy"
     elif ema_38 < ema_100 and previous_ema_38 >= previous_ema_100:
         print(f"Sell Detected")
+        return "Sell"
     else:
-        print(f"No action")
+        return "Hold"
 
 sdf = sdf.to_topic(output_topic)
 app.run(sdf)
