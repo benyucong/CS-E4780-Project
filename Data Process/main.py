@@ -7,7 +7,6 @@ import os
 import time
 from typing import Any, Optional, List, Tuple
 from datetime import timedelta
-from query2 import query2_calculation
 import copy
 
 docs_topic_name = 'dbs2022-trading'

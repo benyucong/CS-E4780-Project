@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY datasets/filtered_trading_data_Monday.csv /app/datasets/filtered_trading_data_Monday.csv
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+CMD ["python", "main.py"]

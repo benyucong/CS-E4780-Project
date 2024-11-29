@@ -9,7 +9,7 @@ from quixstreams.kafka import Producer
 
 docs_topic_name = 'dbs2022-trading'
 
-df = pd.read_csv('../datasets/filtered_trading_data_Monday.csv', comment='#', delimiter=",",index_col=False)
+df = pd.read_csv('datasets/filtered_trading_data_Monday.csv', comment='#', delimiter=",",index_col=False)
 #df = pd.read_csv('../datasets/demo.csv', comment='#')
 
 df.columns = df.columns.str.strip()
