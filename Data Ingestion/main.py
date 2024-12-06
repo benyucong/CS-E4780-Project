@@ -29,7 +29,7 @@ with Producer(
         row = row.replace({pd.NA: None})
         # Read all relevant columns
         value = {
-            "Timestamp": time.time_ns(),
+            "Arrival Time": time.time_ns(),
             "doc_id": doc_id,
             "doc_uuid": doc_uuid,
             "ID": row['ID'],

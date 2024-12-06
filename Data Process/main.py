@@ -71,6 +71,8 @@ def initializer(value: dict) -> dict:
     1, move the items from window_buffer into the known_stock_id_emas
     2, Initiate EMA38 and EMA100 to 0 if stock not seen before. Otherwise, keep the previous windows' values.
     """
+    start_time = time.time_ns()
+    queue_time = start_time - value['Arrival Time']
     global window_buffer
     global known_stock_id_emas
     # known_stock_id_emas update the values from window_buffer
@@ -84,8 +86,14 @@ def initializer(value: dict) -> dict:
         value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
     }
     advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
-    window_buffer[value['ID']]['advice'] = advice
-    return window_buffer
+    # window_buffer[value['ID']]['advice'] = advice
+    process_time = time.time_ns() - start_time
+    return {
+        "Stock ID": value['ID'],
+        "Advice": advice,
+        "Process Time": process_time,
+        "Queue Time": queue_time
+    }
 
 def reducer(aggregated: dict, value: dict) -> dict:
     """
@@ -95,7 +103,10 @@ def reducer(aggregated: dict, value: dict) -> dict:
     It combines them into a new aggregated value and returns it.
     This aggregated value will be also returned as a result of the window.
     """
+    start_time = time.time_ns()
+    queue_time = start_time - value['Arrival Time']
     global known_stock_id_emas
+    global window_buffer
     if value['ID'] not in known_stock_id_emas:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
@@ -120,8 +131,14 @@ def reducer(aggregated: dict, value: dict) -> dict:
     #         key=value['ID'],
     #         value=json.dumps(output_data),
     #     )
-    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100, 'advice': advice}})   
-    return aggregated
+    window_buffer.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})   
+    process_time = time.time_ns() - start_time
+    return {
+        "Stock ID": value['ID'],
+        "Advice": advice,
+        "Process Time": process_time,
+        "Queue Time": queue_time
+    }
 
 def calculate_ema(previous_ema, price, smooth_fac):
     alpha = 2 / (smooth_fac + 1)
@@ -133,7 +150,9 @@ sdf = (
     sdf.tumbling_window(duration_ms=timedelta(minutes=5))
     .reduce(reducer=reducer, initializer=initializer)
     .current()
-    .filter(lambda val: val['advice'] != "Hold" if 'advice' in val else False)
+    .apply(lambda val: val['value'])
+    .filter(lambda val: val['Advice'] != 0 if 'Advice' in val else False)
+    .update(print)
 )
 
 # Query 2 starts here
@@ -146,8 +165,7 @@ def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
         # print(f"Sell Detected")
         return -1
     else:
-        return "Hold"
+        return 0
 
-sdf = sdf.apply(lambda val: print(f"processed events: {val}"))
 sdf = sdf.to_topic(output_topic)
 app.run(sdf)
