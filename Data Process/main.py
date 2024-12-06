@@ -23,6 +23,8 @@ app = Application(
     consumer_extra_config={"allow.auto.create.topics": "true"},
 )
 
+app.clear_state()
+
 # Timestamp extractor must always return timestamp as an integer in milliseconds.
 def timestamp_extractor(
     value: Any,
@@ -51,7 +53,7 @@ sdf = app.dataframe(topic=input_topic)
 # sdf = sdf.update(lambda val: print(f"Received update: {val}"))
 
 # filter the stock by timestamp
-sdf = sdf.filter(lambda val: val['Trading time'] is not None or val['Last'] is not None)
+sdf = sdf.filter(lambda val: val['Trading time'] is not None and val['Last'] is not None)
 
 # store the emas for each stock of prev window
 known_stock_id_emas = dict()
@@ -81,6 +83,8 @@ def initializer(value: dict) -> dict:
     window_buffer = {
         value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
     }
+    advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
+    value['advice'] = advice
     return window_buffer
 
 def reducer(aggregated: dict, value: dict) -> dict:
@@ -97,25 +101,26 @@ def reducer(aggregated: dict, value: dict) -> dict:
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
     new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
     advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
-    global output_data
-    output_data = {
-        "Timestamp": value['Trading time'],
-        "Stock ID": value['ID'],
-        "EMA38": new_ema38,
-        "EMA100": new_ema100,
-        "Advice": advice,
-    }
+    # global output_data
+    # output_data = {
+    #     "Timestamp": value['Trading time'],
+    #     "Stock ID": value['ID'],
+    #     "EMA38": new_ema38,
+    #     "EMA100": new_ema100,
+    #     "Advice": advice,
+    # }
     print(f"Advice for stock {value['ID']}: {advice}")
-    with Producer(
-        broker_address="127.0.0.1:9092",
-        extra_config={"allow.auto.create.topics": "true"},
-    ) as producer:
-        producer.produce(
-            topic=outputtopicname,
-            headers=[("uuid", str(uuid.uuid4()))],
-            key=value['ID'],
-            value=json.dumps(output_data),
-        )
+    # with Producer(
+    #     broker_address="127.0.0.1:9092",
+    #     extra_config={"allow.auto.create.topics": "true"},
+    # ) as producer:
+    #     producer.produce(
+    #         topic=outputtopicname,
+    #         headers=[("uuid", str(uuid.uuid4()))],
+    #         key=value['ID'],
+    #         value=json.dumps(output_data),
+    #     )
+    value['advice'] = advice
     aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})   
     return aggregated
 
@@ -129,6 +134,7 @@ sdf = (
     sdf.tumbling_window(duration_ms=timedelta(minutes=5))
     .reduce(reducer=reducer, initializer=initializer)
     .current()
+    .filter(lambda val: val['advice'] != "Hold" if 'advice' in val else False)
 )
 
 # Query 2 starts here
@@ -136,13 +142,13 @@ def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
     print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
     if ema_38 > ema_100 and previous_ema_38 <= previous_ema_100:
         print(f"Buy Detected")
-        return "Buy"
+        return 1
     elif ema_38 < ema_100 and previous_ema_38 >= previous_ema_100:
         print(f"Sell Detected")
-        return "Sell"
+        return -1
     else:
         return "Hold"
 
-
+sdf = sdf.apply(lambda val: print(f"processed events: {val}"))
 sdf = sdf.to_topic(output_topic)
-app.run()
+app.run(sdf)

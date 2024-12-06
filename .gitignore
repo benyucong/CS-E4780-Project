@@ -6,3 +6,4 @@ Data Process/__pycache__/
 Figures/
 .DS_Store
 kafka_2.13-3.6.2.tgz
+datasets/
