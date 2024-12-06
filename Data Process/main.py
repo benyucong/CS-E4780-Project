@@ -43,10 +43,10 @@ def timestamp_extractor(
     milliseconds = (hours * 3600 + minutes * 60 + seconds) * 1000
     return milliseconds
 
-input_topic = app.topic(inputtopicname, value_deserializer="json", timestamp_extractor=timestamp_extractor)
+input_topic = app.topic(name=inputtopicname, value_deserializer="json", timestamp_extractor=timestamp_extractor)
 print(f"Consuming from input topic: {inputtopicname}")
 
-output_topic = app.topic(outputtopicname, value_serializer="json")
+output_topic = app.topic(name=outputtopicname, value_serializer="json")
 print(f"Producing to output topic: {outputtopicname}")
 
 sdf = app.dataframe(topic=input_topic)
@@ -73,8 +73,8 @@ def initializer(value: dict) -> dict:
     """
     global window_buffer
     global known_stock_id_emas
-    # shallow copy the window buffer
-    known_stock_id_emas = window_buffer.copy()
+    # known_stock_id_emas update the values from window_buffer
+    known_stock_id_emas.update(window_buffer)
     if value['ID'] not in known_stock_id_emas:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
@@ -84,7 +84,7 @@ def initializer(value: dict) -> dict:
         value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}
     }
     advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
-    value['advice'] = advice
+    window_buffer[value['ID']]['advice'] = advice
     return window_buffer
 
 def reducer(aggregated: dict, value: dict) -> dict:
@@ -120,8 +120,7 @@ def reducer(aggregated: dict, value: dict) -> dict:
     #         key=value['ID'],
     #         value=json.dumps(output_data),
     #     )
-    value['advice'] = advice
-    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100}})   
+    aggregated.update({value['ID']: {'EMA38': new_ema38, 'EMA100': new_ema100, 'advice': advice}})   
     return aggregated
 
 def calculate_ema(previous_ema, price, smooth_fac):
@@ -141,10 +140,10 @@ sdf = (
 def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
     print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
     if ema_38 > ema_100 and previous_ema_38 <= previous_ema_100:
-        print(f"Buy Detected")
+        # print(f"Buy Detected")
         return 1
     elif ema_38 < ema_100 and previous_ema_38 >= previous_ema_100:
-        print(f"Sell Detected")
+        # print(f"Sell Detected")
         return -1
     else:
         return "Hold"
