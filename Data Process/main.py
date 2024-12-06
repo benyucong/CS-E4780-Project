@@ -120,7 +120,7 @@ def reducer(aggregated: dict, value: dict) -> dict:
     #     "EMA100": new_ema100,
     #     "Advice": advice,
     # }
-    print(f"Advice for stock {value['ID']}: {advice}")
+    # print(f"Advice for stock {value['ID']}: {advice}")
     # with Producer(
     #     broker_address="127.0.0.1:9092",
     #     extra_config={"allow.auto.create.topics": "true"},
@@ -157,7 +157,7 @@ sdf = (
 
 # Query 2 starts here
 def query2_calculation(ema_38, ema_100, previous_ema_38, previous_ema_100):
-    print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
+    # print(f"EMA_38: {ema_38}, EMA_100: {ema_100}, previous_EMA_38: {previous_ema_38}, previous_EMA_100: {previous_ema_100}")
     if ema_38 > ema_100 and previous_ema_38 <= previous_ema_100:
         # print(f"Buy Detected")
         return 1
