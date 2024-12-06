@@ -110,7 +110,7 @@ def reducer(aggregated: dict, value: dict) -> dict:
     if value['ID'] not in known_stock_id_emas:
         known_stock_id_emas[value['ID']] = {'EMA38': 0, 'EMA100': 0}
     new_ema38 = calculate_ema(known_stock_id_emas[value['ID']]['EMA38'], value['Last'], 38)
-    new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100) 
+    new_ema100 = calculate_ema(known_stock_id_emas[value['ID']]['EMA100'], value['Last'], 100)
     advice = query2_calculation(new_ema38, new_ema100, known_stock_id_emas[value['ID']]['EMA38'], known_stock_id_emas[value['ID']]['EMA100'])
     # global output_data
     # output_data = {
